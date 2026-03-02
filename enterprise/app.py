@@ -24,6 +24,7 @@ from enterprise.providers.registry import get_provider
 from enterprise.tenants.router import ensure_tenant_schema, save_trace, get_traces
 from enterprise.webhooks.dispatcher import dispatch, build_payload
 from enterprise.audit.exporter import export_csv, export_pdf
+from enterprise.tier import enforce, enforce_tenant_count, get_effective_rate_limit, tier_info
 
 app = FastAPI(
     title="CognOS Enterprise Gateway",
@@ -62,8 +63,8 @@ async def on_startup() -> None:
 # ---------------------------------------------------------------------------
 
 @app.get("/healthz")
-async def healthz() -> dict[str, str]:
-    return {"status": "ok", "service": "cognos-enterprise-gateway", "version": "1.0.0"}
+async def healthz() -> dict:
+    return {"status": "ok", "service": "cognos-enterprise-gateway", "version": "1.0.0", **tier_info()}
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +79,7 @@ class SignupRequest(BaseModel):
 
 @app.post("/v1/signup")
 async def signup(req: SignupRequest) -> dict[str, str]:
+    enforce_tenant_count(len(set(v["tenant_id"] for v in __import__("enterprise.auth.middleware", fromlist=["_API_KEY_STORE"])._API_KEY_STORE.values())))
     api_key = generate_api_key()
     register_api_key(api_key, req.tenant_id, role=req.role)
     if _USE_POSTGRES:
@@ -91,6 +93,11 @@ async def signup(req: SignupRequest) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 # Provider health check
 # ---------------------------------------------------------------------------
+
+@app.get("/v1/tier")
+async def get_tier_info(auth: AuthDep) -> dict:
+    return tier_info()
+
 
 @app.get("/v1/providers/health")
 async def provider_health(auth: AuthDep) -> dict[str, Any]:
@@ -106,9 +113,9 @@ async def provider_health(auth: AuthDep) -> dict[str, Any]:
 
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request, auth: AuthDep) -> Response:
-    # Rate limiting
+    # Rate limiting (free tier capped at 100/day)
     cfg = load_provider_config(auth.tenant_id)
-    rate_str = cfg.get("rate_limit", "1000/day")
+    rate_str = get_effective_rate_limit(cfg.get("rate_limit", "1000/day"))
     allowed, remaining = await check_rate_limit(auth.tenant_id, rate_str)
     if not allowed:
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
@@ -158,9 +165,10 @@ async def chat_completions(request: Request, auth: AuthDep) -> Response:
         else:
             raise HTTPException(status_code=502, detail=f"Provider error: {exc}")
 
-    # Webhook on ESCALATE
+    # Webhook on ESCALATE (free tier: limited events, enforce at dispatch)
     webhook_url = cfg.get("webhook_url")
     if webhook_url and decision in {"ESCALATE", "BLOCK"}:
+        enforce("webhook_max_events_per_day")  # no-op in enterprise
         wh_payload = build_payload(trace_id, decision, trust_score, auth.tenant_id, model)
         await dispatch(webhook_url, wh_payload)
 
@@ -200,6 +208,7 @@ async def audit_export(
         traces = _get_sqlite_traces(from_ts, to_ts)
 
     if format == "pdf":
+        enforce("audit_pdf")
         pdf_bytes = export_pdf(traces, auth.tenant_id)
         return Response(
             content=pdf_bytes,
