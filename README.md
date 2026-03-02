@@ -1,5 +1,7 @@
 # TrustPlane
 
+![TrustPlane](docs/trustplane.png)
+
 **The AI Trust Control Plane for production LLM systems.**
 
 TrustPlane gives your legal and compliance team what they need to sign off on AI deployment: a documented risk policy, an immutable audit trail, and automatic escalation to human review when confidence drops.
