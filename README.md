@@ -1,22 +1,20 @@
-# CognOS Enterprise
+# TrustPlane
 
 **The AI Trust Control Plane for production LLM systems.**
 
-CognOS Enterprise intercepts every LLM request, scores it for epistemic uncertainty, and enforces your risk policy before the response reaches your users. Every decision is logged, auditable, and EU AI Act compliant.
+TrustPlane gives your legal and compliance team what they need to sign off on AI deployment: a documented risk policy, an immutable audit trail, and automatic escalation to human review when confidence drops.
 
-Built for organizations where AI failures have consequences.
+Built on [CognOS](https://github.com/base76-research-lab/cognos-proof-engine) — the open-source epistemic scoring engine from Base76 Research Lab.
 
 ---
 
-## Why this exists
+## The risk your organization is carrying
 
-AI failures in production are not edge cases. They are a category of operational risk that most teams have no infrastructure to detect, prevent, or document.
+Every unverified LLM response in a production system is an undocumented decision. When something goes wrong — a hallucinated figure in a financial report, an incorrect medical reference, a legal citation that doesn't exist — there is no record of what the model was asked, what it answered, or what your system decided to do with it.
 
-A model hallucinating a medical dosage. A legal assistant citing a case that doesn't exist. A financial assistant giving advice it has no basis for. These are not hypothetical — they happen every day, silently, in systems that have no visibility layer between the LLM and the user.
+That is a liability exposure. In regulated industries, it is a compliance failure.
 
-The cost of an AI failure is not the API call. It is liability, compliance exposure, reputational damage, and in regulated industries, regulatory action.
-
-CognOS Enterprise is the control plane that sits between your application and any LLM, measuring uncertainty before trust is granted.
+TrustPlane intercepts every LLM request, scores it for epistemic uncertainty, enforces your risk policy, and logs the decision — before the response reaches your users.
 
 ---
 
@@ -28,11 +26,11 @@ Every request is scored using the epistemic trust formula:
 C = p × (1 − Ue − Ua)
 ```
 
-- `p` — prior confidence in the model for this request type
-- `Ue` — epistemic uncertainty (reducible: what the model doesn't know)
-- `Ua` — aleatoric uncertainty (irreducible: noise inherent in the domain)
+- `p` — prior confidence for this request type
+- `Ue` — epistemic uncertainty (what the model doesn't know)
+- `Ua` — aleatoric uncertainty (irreducible noise in the domain)
 
-The result is a trust score between 0 and 1. Your policy determines what happens next.
+The score determines the outcome:
 
 | Trust score | Decision | Action |
 |---|---|---|
@@ -44,25 +42,25 @@ The result is a trust score between 0 and 1. Your policy determines what happens
 Every response carries the decision in its headers:
 
 ```
-X-Cognos-Trust-Score: 0.8731
-X-Cognos-Decision: PASS
-X-Cognos-Trace-Id: tr_a3f91c2d44b1
-X-Cognos-Policy: enterprise_v1
+X-TrustPlane-Score: 0.8731
+X-TrustPlane-Decision: PASS
+X-TrustPlane-Trace-Id: tr_a3f91c2d44b1
+X-TrustPlane-Policy: enterprise_v1
 ```
 
 ---
 
 ## Evidence base
 
-The trust-scoring model is not a heuristic. It is grounded in epistemic theory and validated through empirical work published at [Base76 Research Lab](https://github.com/base76-research-lab).
+The scoring model is open source, auditable, and grounded in published theory.
 
-**OSS core:** [cognos-proof-engine](https://github.com/base76-research-lab/cognos-proof-engine) — the scoring engine is open source, auditable, and independently verifiable. The formula, the decision thresholds, and the policy engine are all inspectable.
+**OSS core:** [cognos-proof-engine](https://github.com/base76-research-lab/cognos-proof-engine) — the scoring engine is MIT-licensed and independently verifiable. The formula, thresholds, and policy engine are all inspectable.
 
-**Published research:** The Field-Node-Cockpit (FNC) framework underlying the model has been through peer review. See [Applied AI Philosophy](https://github.com/Applied-Ai-Philosophy) for the full publication record.
+**Published research:** The Field-Node-Cockpit (FNC) framework underlying the model has been through peer review. Full publication record at [Applied AI Philosophy](https://github.com/Applied-Ai-Philosophy).
 
-**Falsifiability:** The threshold model makes testable predictions. A system calibrated to `target_risk: 0.3` should escalate measurably more than one set to `0.7`. This is testable, loggable, and reportable — which is the point.
+**Falsifiability:** A system calibrated to `target_risk: 0.3` escalates measurably more than one set to `0.7`. This is testable against your own request logs — not a marketing claim.
 
-If your compliance team, security team, or legal counsel needs to understand how the scoring works, there is source code and published theory to show them.
+If your security team, legal counsel, or compliance officer needs to understand how the scoring works, there is source code and published theory to show them.
 
 ---
 
@@ -74,7 +72,7 @@ One control plane. Every provider. Switch without changing application code.
 ```yaml
 provider: ollama          # On-premise, air-gapped
 provider: openai          # GPT-4o, o1, o3
-provider: anthropic       # Claude 3.5, Claude 4
+provider: anthropic       # Claude Sonnet, Claude Opus
 provider: groq            # High-throughput inference
 provider: cerebras        # Low-latency inference
 ```
@@ -113,45 +111,39 @@ curl -H "X-API-Key: your-key" \
 ```
 
 ### Deployment options
-Self-hosted via Docker Compose (your infrastructure, your data) or SaaS (managed, zero-ops).
+Self-hosted via Docker Compose or SaaS. Your data never has to leave your environment.
 
 ---
 
 ## Claude Code & Anthropic API
 
-CognOS Enterprise integrates with Anthropic in two directions.
+TrustPlane integrates with Anthropic in two directions.
 
-**Claude as LLM backend** — use any Claude model (Opus, Sonnet, Haiku) as the provider behind the trust-scoring gateway:
+**Claude as LLM backend** — any Claude model behind the trust-scoring gateway:
 
 ```yaml
-# enterprise/config/provider.yaml
 provider: anthropic
 model: claude-sonnet-4-6
 api_key: ${ANTHROPIC_API_KEY}
 target_risk: 0.3
-fallback: ollama
 ```
 
-**CognOS as MCP server for Claude Code** — expose trust verification as tools that Claude Code can call during its own reasoning:
+**TrustPlane as MCP server for Claude Code** — expose trust verification as tools Claude Code can call during its own reasoning:
 
 ```json
-// ~/.claude/settings.json
 {
   "mcpServers": {
-    "cognos": {
+    "trustplane": {
       "command": "python",
       "args": ["/path/to/Cognos-enterprise/mcp/server.py"],
       "env": {
         "COGNOS_BASE_URL": "http://127.0.0.1:8788",
-        "COGNOS_API_KEY": "your-key",
-        "COGNOS_TENANT": "your-tenant"
+        "COGNOS_API_KEY": "your-key"
       }
     }
   }
 }
 ```
-
-Claude Code then has access to `verify_output`, `get_trace`, and `create_trust_report` as native tools — scoring its own outputs before acting on them.
 
 Full setup guide: [mcp/CLAUDE_CODE_SETUP.md](mcp/CLAUDE_CODE_SETUP.md)
 
@@ -162,7 +154,7 @@ Full setup guide: [mcp/CLAUDE_CODE_SETUP.md](mcp/CLAUDE_CODE_SETUP.md)
 ```bash
 git clone https://github.com/base76-research-lab/Cognos-enterprise.git
 cd Cognos-enterprise
-cp .env.example .env        # Set provider + API key
+cp .env.example .env        # Set COGNOS_PROVIDER + API key
 docker-compose up
 
 curl -X POST http://localhost:8788/v1/chat/completions \
@@ -180,7 +172,7 @@ curl -X POST http://localhost:8788/v1/chat/completions \
 Your Application
        │
        ▼
-CognOS Enterprise          — trust scoring, policy enforcement
+TrustPlane                 — trust scoring, policy enforcement
        │                   — RBAC, rate limiting, audit logging
        │                   — webhook dispatch, tenant isolation
        │
@@ -199,9 +191,9 @@ Dashboard (Next.js)        — visibility layer
 
 ## EU AI Act compliance
 
-CognOS Enterprise is designed for organizations operating AI systems classified as high-risk under EU AI Act Annex III.
+Designed for organizations operating high-risk AI systems under EU AI Act Annex III.
 
-| Article | Requirement | How CognOS addresses it |
+| Article | Requirement | How TrustPlane addresses it |
 |---|---|---|
 | Art. 9 | Risk management system | Continuous epistemic scoring on every inference |
 | Art. 12 | Record-keeping | Immutable trace log with trace IDs and timestamps |
@@ -216,20 +208,17 @@ Full compliance guide: [docs/EU_AI_ACT.md](docs/EU_AI_ACT.md)
 
 ### Free
 Open-source core. 1 tenant. 100 requests/day. CSV export.
-Sufficient for evaluation and development.
-[→ cognos-proof-engine](https://github.com/base76-research-lab/cognos-proof-engine)
+→ [cognos-proof-engine](https://github.com/base76-research-lab/cognos-proof-engine) (MIT)
 
 ### SaaS — from €499/month per tenant
 Hosted. Zero infrastructure. Full enterprise feature set.
-Suitable for teams that want to deploy quickly without managing infrastructure.
 
 ### Self-hosted license — from €25,000/year
-Run CognOS on your own infrastructure. Full source access. Air-gap compatible.
-Suitable for regulated industries, government, and organizations with data residency requirements.
+Your infrastructure. Air-gap compatible. Full source access.
 
-### Enterprise consulting bundle
-Architecture review, policy calibration, compliance documentation, and ongoing support.
-Suitable for organizations deploying AI in high-risk domains (healthcare, legal, finance, public sector).
+### Enterprise consulting
+Architecture review, policy calibration, compliance documentation, ongoing support.
+For healthcare, legal, finance, and public sector deployments.
 
 Contact: [bjorn@base76.se](mailto:bjorn@base76.se)
 
@@ -256,7 +245,7 @@ Contact: [bjorn@base76.se](mailto:bjorn@base76.se)
 
 ## Built on open source
 
-Enterprise is the production layer on top of [cognos-proof-engine](https://github.com/base76-research-lab/cognos-proof-engine) (MIT). The scoring engine is open and auditable. The enterprise layer adds multi-tenancy, auth, webhooks, audit exports, and commercial support.
+TrustPlane is the production layer on top of [cognos-proof-engine](https://github.com/base76-research-lab/cognos-proof-engine) (MIT). The scoring engine is open and auditable. TrustPlane adds multi-tenancy, auth, webhooks, audit exports, and commercial support.
 
 Related:
 - [cognos-session-memory](https://github.com/base76-research-lab/cognos-session-memory) — Verified context injection

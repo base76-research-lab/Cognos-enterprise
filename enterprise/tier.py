@@ -44,7 +44,7 @@ def enforce(feature: str) -> None:
     if locked:
         raise HTTPException(
             status_code=402,
-            detail=f"Feature '{feature}' requires CognOS Enterprise. "
+            detail=f"Feature '{feature}' requires TrustPlane. "
                    f"Upgrade at https://cognos.ai/upgrade",
         )
 
@@ -53,7 +53,7 @@ def enforce_tenant_count(current_count: int) -> None:
     if _TIER == Tier.FREE and current_count >= FREE_LIMITS["max_tenants"]:
         raise HTTPException(
             status_code=402,
-            detail="Free tier is limited to 1 tenant. Upgrade to CognOS Enterprise.",
+            detail="Free tier is limited to 1 tenant. Upgrade to TrustPlane.",
         )
 
 

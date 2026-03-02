@@ -27,7 +27,7 @@ from enterprise.audit.exporter import export_csv, export_pdf
 from enterprise.tier import enforce, enforce_tenant_count, get_effective_rate_limit, tier_info
 
 app = FastAPI(
-    title="CognOS Enterprise Gateway",
+    title="TrustPlane Gateway",
     version="1.0.0",
     description="Pluggable LLM trust-scoring gateway with multi-tenant isolation",
 )
@@ -64,7 +64,7 @@ async def on_startup() -> None:
 
 @app.get("/healthz")
 async def healthz() -> dict:
-    return {"status": "ok", "service": "cognos-enterprise-gateway", "version": "1.0.0", **tier_info()}
+    return {"status": "ok", "service": "trustplane-gateway", "version": "1.0.0", **tier_info()}
 
 
 # ---------------------------------------------------------------------------

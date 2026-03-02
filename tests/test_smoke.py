@@ -1,4 +1,4 @@
-"""Smoke tests for CognOS Enterprise Gateway (no external deps required)."""
+"""Smoke tests for TrustPlane Gateway (no external deps required)."""
 from __future__ import annotations
 
 import os

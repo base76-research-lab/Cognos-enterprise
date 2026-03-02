@@ -1,10 +1,10 @@
-# CognOS Enterprise — EU AI Act Compliance Guide
+# TrustPlane — EU AI Act Compliance Guide
 
 ## Relevanta artiklar
 
 ### Article 13 — Transparency and provision of information to deployers
 
-CognOS Enterprise uppfyller Article 13 genom:
+TrustPlane uppfyller Article 13 genom:
 
 - **Epistemic headers** på varje request: `X-Cognos-Trust-Score`, `X-Cognos-Decision`, `X-Cognos-Trace-Id`
 - **Audit export**: `GET /v1/audit/export?format=pdf` genererar Article 13-rapport med attestation-sammanfattning
@@ -63,7 +63,7 @@ curl -H "X-API-Key: your-key" \
 
 ## Certifiering
 
-CognOS Enterprise är designad för att stödja EU AI Act High-Risk AI system (Annex III)
+TrustPlane är designad för att stödja EU AI Act High-Risk AI system (Annex III)
 genom att tillhandahålla:
 1. Kontinuerlig riskbedömning per request
 2. Spårbarhet via trace IDs

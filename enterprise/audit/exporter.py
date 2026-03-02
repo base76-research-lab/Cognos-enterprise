@@ -39,7 +39,7 @@ def export_pdf(traces: list[dict[str, Any]], tenant_id: str) -> bytes:
         styles = getSampleStyleSheet()
         elements = []
 
-        elements.append(Paragraph("CognOS Enterprise — Audit Report", styles["Title"]))
+        elements.append(Paragraph("TrustPlane — Audit Report", styles["Title"]))
         elements.append(Paragraph(f"Tenant: {tenant_id}", styles["Normal"]))
         elements.append(Paragraph(f"Total traces: {len(traces)}", styles["Normal"]))
         elements.append(Spacer(1, 12))
@@ -76,7 +76,7 @@ def export_pdf(traces: list[dict[str, Any]], tenant_id: str) -> bytes:
 
 
 def _minimal_pdf(tenant_id: str, count: int) -> bytes:
-    content = f"CognOS Enterprise Audit Report\nTenant: {tenant_id}\nTraces: {count}\n"
+    content = f"TrustPlane Audit Report\nTenant: {tenant_id}\nTraces: {count}\n"
     encoded = content.encode()
     return (
         b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"

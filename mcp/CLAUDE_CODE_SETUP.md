@@ -1,12 +1,12 @@
-# CognOS Enterprise — Claude Code & Anthropic API Setup
+# TrustPlane — Claude Code & Anthropic API Setup
 
-Connect CognOS Enterprise to Claude Code as an MCP server, or use the Anthropic provider adapter directly in your application.
+Connect TrustPlane to Claude Code as an MCP server, or use the Anthropic provider adapter directly in your application.
 
 ---
 
 ## Option A: Claude Code via MCP
 
-CognOS Enterprise exposes itself as an MCP server. Claude Code can then call trust-scoring tools directly during its own reasoning process — verifying outputs before acting on them.
+TrustPlane exposes itself as an MCP server. Claude Code can then call trust-scoring tools directly during its own reasoning process — verifying outputs before acting on them.
 
 ### 1. Install MCP dependencies
 
@@ -67,7 +67,7 @@ Claude Code calls `verify_output` → gets trust score → decides whether to pr
 
 ## Option B: Anthropic API as LLM backend
 
-Use Claude (claude-sonnet-4-6, claude-opus-4-6, etc.) as the LLM behind CognOS Enterprise trust scoring.
+Use Claude (claude-sonnet-4-6, claude-opus-4-6, etc.) as the LLM behind TrustPlane trust scoring.
 
 ### Configure provider.yaml
 
