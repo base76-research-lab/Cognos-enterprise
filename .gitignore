@@ -12,3 +12,4 @@ node_modules/
 dist/
 build/
 __pycache__/
+.claude_context
