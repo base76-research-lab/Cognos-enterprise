@@ -3,7 +3,7 @@
 
 | Field | Value |
 |-------|-------|
-| Document version | 1.0.0 |
+| Document version | 1.1.0 |
 | Date | 2026-03-03 |
 | Provider | Base76 Research Lab, Sjöbo, Sweden |
 | System name | TrustPlane |
@@ -44,6 +44,7 @@ TrustPlane is a pluggable LLM (Large Language Model) trust-scoring gateway desig
 |---------|------|-------------------|
 | 0.9.0 | 2026-02 | Initial release: gateway, audit CSV/PDF export |
 | 1.0.0 | 2026-03-03 | Compliance report feature, EU AI Act Article mapping, reports API |
+| 1.1.0 | 2026-03-03 | Art. 14 override endpoint, Art. 12 retention enforcement, Art. 73 incident register |
 
 ### 1.4 Risk Classification Assessment
 
@@ -183,9 +184,10 @@ These signals feed the compliance report risk-area analysis in `enterprise/audit
 ### 2.4 Data Flow and Retention
 
 1. **Input data:** Chat messages from tenant application. No personal data is required by TrustPlane; personal data handling is the deployer's responsibility.
-2. **Stored per trace:** `trace_id`, `created_at`, `decision`, `policy`, `trust_score`, `risk`, `model`, `is_stream`, `status_code`, `envelope` (full request/response JSON), `metadata`
-3. **Retention default:** 90 days (`audit_retention_days: 90` in `provider.yaml`). Deployers subject to Article 12 must configure ≥ 6 months.
-4. **Schema isolation:** Each tenant has a dedicated PostgreSQL schema (`tenant_{id}`), preventing cross-tenant data access.
+2. **Stored per trace:** `trace_id`, `created_at`, `decision`, `policy`, `trust_score`, `risk`, `model`, `is_stream`, `status_code`, `envelope` (full request/response JSON), `metadata`, `expires_at`, `overridden`, `override_by`, `override_at`, `override_reason`
+3. **Retention enforcement (Art. 12):** Every trace is stored with `expires_at = created_at + retention_days`. The minimum enforced value is **180 days** (6 months) regardless of tenant configuration. A daily background task (`_retention_purge_loop`) deletes traces whose `expires_at` is in the past. The interval is configurable via `COGNOS_PURGE_INTERVAL_HOURS` (default: 24).
+4. **Override audit trail (Art. 14):** When a human reviewer overrides a BLOCK or ESCALATE decision via `POST /v1/traces/{id}/override`, the columns `overridden`, `override_by`, `override_at`, and `override_reason` are set. This record is immutable — a trace can only be overridden once.
+5. **Schema isolation:** Each tenant has a dedicated PostgreSQL schema (`tenant_{id}`), preventing cross-tenant data access.
 
 ### 2.5 Human Oversight Integration (Article 14)
 
@@ -197,7 +199,7 @@ The system supports human oversight through:
 - **Audit export:** Full trace export (CSV/PDF) for human auditor review
 - **RBAC roles:** `auditor` role provides read-only access to traces and reports without ability to modify system behaviour
 
-**Gap acknowledged (v1.0.0):** No in-band override endpoint exists. A deployer cannot programmatically mark a BLOCK decision as reviewed/approved via API. This is planned for v1.1.0 (`POST /v1/traces/{id}/override`).
+**Override endpoint (v1.1.0):** `POST /v1/traces/{trace_id}/override` allows a named auditor or admin to mark a BLOCK or ESCALATE trace as human-reviewed. The override is persisted with `override_by`, `override_at`, and `override_reason`, creating a full audit trail of human oversight decisions per Article 14.
 
 ### 2.6 Testing and Validation
 
@@ -366,7 +368,7 @@ In the event of a serious incident, Base76 Research Lab shall:
 1. Identify and contain the incident within 24 hours
 2. Notify affected tenants within 48 hours
 3. Report to the relevant national supervisory authority (Sweden: IMY — Integritetsskyddsmyndigheten) within 15 days if the incident involves personal data or fundamental rights impact
-4. Document the incident in an internal incident register
+4. Document the incident in the incident register (`docs/incidents/`) using the provided template
 5. Update this technical documentation with the incident summary and corrective action
 
 ### 9.3 Performance Threshold Alerts
@@ -379,7 +381,7 @@ The following conditions in a monthly compliance report shall trigger a provider
 
 ---
 
-## Appendix A — File Structure (v1.0.0)
+## Appendix A — File Structure (v1.1.0)
 
 ```
 Cognos-enterprise/
@@ -401,7 +403,7 @@ Cognos-enterprise/
 │   │   ├── groq.py
 │   │   └── cerebras.py
 │   ├── tenants/
-│   │   └── router.py             # PostgreSQL multi-tenant store
+│   │   └── router.py             # PostgreSQL multi-tenant store + override + purge
 │   └── webhooks/
 │       └── dispatcher.py         # Webhook dispatch on ESCALATE/BLOCK
 ├── gateway/
@@ -409,6 +411,12 @@ Cognos-enterprise/
 │   ├── policy.py                 # Deterministic trust/risk policy engine
 │   ├── reports.py                # Basic trust report builder
 │   └── trace_store.py            # SQLite fallback store
+├── docs/
+│   └── incidents/
+│       ├── README.md             # Incident register log + classification (Art. 73)
+│       └── TEMPLATE.md           # Incident report template
+├── TECHNICAL_DOCUMENTATION.md   # This document (Annex IV, Art. 11)
+├── QUALITY_MANAGEMENT.md         # QMS document (Art. 17)
 └── tests/
     └── test_smoke.py
 ```
@@ -417,18 +425,60 @@ Cognos-enterprise/
 
 ## Appendix B — API Endpoints Summary
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/v1/chat/completions` | operator/admin | LLM proxy with trust scoring |
-| GET | `/v1/audit/export` | auditor/admin | CSV or raw PDF trace export |
-| POST | `/v1/audit/compliance-report` | auditor/admin | Generate EU AI Act compliance report |
-| GET | `/v1/reports/` | auditor/admin | List saved reports |
-| GET | `/v1/reports/{id}` | auditor/admin | Fetch report JSON |
-| GET | `/v1/reports/{id}/pdf` | auditor/admin | Download report PDF |
-| GET | `/v1/traces/{id}` | auditor/admin | Fetch single trace |
-| POST | `/v1/signup` | public | Register new tenant |
-| GET | `/v1/tier` | operator/admin | Tier and feature info |
-| GET | `/healthz` | public | Health check |
+| Method | Path | Auth | Art. | Description |
+|--------|------|------|------|-------------|
+| POST | `/v1/chat/completions` | operator/admin | — | LLM proxy with trust scoring |
+| GET | `/v1/audit/export` | auditor/admin | 12 | CSV or raw PDF trace export |
+| POST | `/v1/audit/compliance-report` | auditor/admin | 9,12,13,14 | Generate EU AI Act compliance report (JSON or PDF) |
+| GET | `/v1/reports/` | auditor/admin | 12 | List saved compliance reports |
+| GET | `/v1/reports/{id}` | auditor/admin | 12 | Fetch compliance report JSON |
+| GET | `/v1/reports/{id}/pdf` | auditor/admin | 12,13 | Download compliance report PDF |
+| GET | `/v1/traces/{id}` | auditor/admin | 12 | Fetch single trace record |
+| POST | `/v1/traces/{id}/override` | auditor/admin | 14 | Mark BLOCK/ESCALATE trace as human-reviewed; records override_by, override_at, override_reason |
+| POST | `/v1/signup` | public | — | Register new tenant |
+| GET | `/v1/tier` | operator/admin | — | Tier and feature info |
+| GET | `/healthz` | public | — | Health check |
+
+---
+
+---
+
+## Appendix C — Database Schema (v1.1.0)
+
+### `tenant_{id}.traces`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `trace_id` | TEXT PK | Unique trace identifier (`tr_…`) |
+| `created_at` | TIMESTAMPTZ | Request timestamp |
+| `decision` | TEXT | `PASS` / `REFINE` / `ESCALATE` / `BLOCK` |
+| `policy` | TEXT | Policy ID used |
+| `trust_score` | DOUBLE PRECISION | `1.0 - risk` |
+| `risk` | DOUBLE PRECISION | Risk score [0.0–1.0] |
+| `is_stream` | BOOLEAN | Streaming request flag |
+| `status_code` | INTEGER | HTTP response code |
+| `model` | TEXT | LLM model identifier |
+| `request_fp` | JSONB | Request fingerprint |
+| `response_fp` | JSONB | Response fingerprint |
+| `envelope` | JSONB | Full request/response + cognos signals |
+| `metadata` | JSONB | Arbitrary tenant metadata |
+| `expires_at` | TIMESTAMPTZ | Retention expiry (Art. 12); min 180 days from `created_at` |
+| `overridden` | BOOLEAN | True if human-reviewed via override endpoint (Art. 14) |
+| `override_by` | TEXT | Role + API key suffix of reviewer |
+| `override_at` | TIMESTAMPTZ | Timestamp of override |
+| `override_reason` | TEXT | Mandatory human-provided justification |
+
+### `tenant_{id}.reports`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `report_id` | TEXT PK | Unique report identifier (`rpt_…`) |
+| `created_at` | TIMESTAMPTZ | Report generation timestamp |
+| `period_from` | TIMESTAMPTZ | Analysis period start |
+| `period_to` | TIMESTAMPTZ | Analysis period end |
+| `risk_level` | TEXT | `LOW` / `MEDIUM` / `HIGH` |
+| `summary_json` | JSONB | Full `ComplianceReport` as JSON |
+| `pdf_blob` | BYTEA | PDF binary (enterprise tier only) |
 
 ---
 
