@@ -246,11 +246,15 @@ Detailed deployment scenarios with architecture diagrams:
 Open-source core. 1 tenant. 100 requests/day. CSV export.
 → [cognos-proof-engine](https://github.com/base76-research-lab/cognos-proof-engine) (MIT)
 
-### SaaS — from €499/month per tenant
+### SaaS — from €999/month per tenant
 Hosted. Zero infrastructure. Full enterprise feature set.
 
 ### Self-hosted license — from €25,000/year
 Your infrastructure. Air-gap compatible. Full source access.
+
+Need a human-reviewed compliance report?
+Base76 Research Lab offers provider-facing EU AI Act Deep Audits - Article 11, 13, 14, 15 mapping, Annex III triage. From €20K.
+https://base76research.com/deep-audit
 
 ### Enterprise consulting
 Architecture review, policy calibration, compliance documentation, ongoing support.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import secrets
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
@@ -17,9 +18,18 @@ ROLES = {"admin", "operator", "auditor", "viewer"}
 _API_KEY_STORE: dict[str, dict] = {}
 
 
-def register_api_key(api_key: str, tenant_id: str, role: str = "operator") -> None:
-    """Register an API key (used at signup / testing)."""
-    _API_KEY_STORE[api_key] = {"tenant_id": tenant_id, "role": role}
+def register_api_key(
+    api_key: str,
+    tenant_id: str,
+    role: str = "operator",
+    pilot_started_at: datetime | None = None,
+) -> None:
+    """Register an API key. Pass pilot_started_at to enable 30-day expiry."""
+    _API_KEY_STORE[api_key] = {
+        "tenant_id": tenant_id,
+        "role": role,
+        "pilot_started_at": pilot_started_at,
+    }
 
 
 def _seed_from_env() -> None:
@@ -73,6 +83,10 @@ def get_auth_context(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tenant mismatch",
         )
+    # Enforce pilot expiry if applicable
+    from enterprise.tier import enforce_pilot_expiry
+    enforce_pilot_expiry(record.get("pilot_started_at"))
+
     return AuthContext(tenant_id=tenant_id, role=record["role"], api_key=x_api_key)
 
 
