@@ -4,6 +4,8 @@
 
 **The AI Trust Control Plane for production LLM systems.**
 
+> **🔖 Acquisition opportunity:** TrustPlane is available for acquisition. Listing coming soon on [Acquire.com](https://acquire.com). Contact [bjorn@base76.se](mailto:bjorn@base76.se) for early inquiries.
+
 TrustPlane gives your legal and compliance team what they need to sign off on AI deployment: a documented risk policy, an immutable audit trail, and automatic escalation to human review when confidence drops.
 
 Powered by [CognOS](https://github.com/base76-research-lab/cognos-proof-engine) — an auditable epistemic risk engine with published theoretical foundations.
